@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * CartaLista · tokens de diseño
+ * Calidez gastronómica + interfaz operativa clara. Espaciado en múltiplos de
+ * 4/8 (escala de Tailwind), radios de 8 a 12 px, sombras discretas.
+ * Contrastes verificados en tests/unit/text-contrast-time.test.ts.
+ */
+
+@theme inline {
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-heading: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-brand: var(--brand);
+  --color-terracota: var(--terracota);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-error: var(--error);
+  --color-error-surface: var(--error-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+  --radius-3xl: 12px;
+  --radius-4xl: 9999px;
+
+  --shadow-xs: 0 1px 1px rgb(32 42 36 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(32 42 36 / 0.06), 0 1px 1px rgb(32 42 36 / 0.03);
+  --shadow-md: 0 4px 12px rgb(32 42 36 / 0.08), 0 1px 2px rgb(32 42 36 / 0.04);
+  --shadow-lg: 0 12px 32px rgb(32 42 36 / 0.12);
+}
+
+:root {
+  --radius: 10px;
+
+  --background: #f7f5ef;
+  --foreground: #202a24;
+  --card: #ffffff;
+  --card-foreground: #202a24;
+  --popover: #ffffff;
+  --popover-foreground: #202a24;
+
+  --primary: #214e3b;
+  --primary-hover: #17392b;
+  --primary-foreground: #ffffff;
+  /* Selección suave */
+  --secondary: #e8f0e9;
+  --secondary-foreground: #17392b;
+  --accent: #e8f0e9;
+  --accent-foreground: #17392b;
+  --muted: #f7f5ef;
+  --muted-foreground: #626b64;
+
+  /* Color de marca del negocio en la carta pública (se reemplaza por negocio) */
+  --brand: #214e3b;
+  --terracota: #b65335;
+
+  /* Bordes decorativos (#DEE3DA) y borde de controles con contraste 3:1 */
+  --border: #dee3da;
+  --input: #858d86;
+  --ring: #214e3b;
+
+  --destructive: #b42318;
+  --success: #246344;
+  --success-surface: #e8f0e9;
+  --warning: #8a5700;
+  --warning-surface: #fff3d6;
+  --error: #b42318;
+  --error-surface: #feece9;
+  --info: #235b83;
+  --info-surface: #eaf3fa;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01" on;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: #cfe0d3;
+    color: #17392b;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+  }
+  .price {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #ffffff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
