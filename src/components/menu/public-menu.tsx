@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { formatMoney } from "@/domain/money";
 import { PRODUCT_TAGS, type ProductTag, type SnapshotProduct } from "@/domain/snapshot";
 import { nameKey } from "@/domain/text";
+import { effectiveTheme, isDarkTheme, themeCssVars, type MenuTheme } from "@/domain/theme";
 import { describeOpenStatus, hoursByDay, openStatus, type OpenStatus } from "@/domain/time";
 import { publicMediaUrl } from "@/lib/media-url";
 import { PromotionsStrip } from "./promotions-strip";
@@ -29,16 +30,38 @@ function productMatches(product: SnapshotProduct, q: string) {
   return q.split(" ").every((word) => text.includes(word));
 }
 
+const DIVIDERS: Record<MenuTheme["style"]["dividers"], string> = {
+  dashed: "divide-y divide-dashed divide-border",
+  dotted: "divide-y divide-dotted divide-border",
+  solid: "divide-y divide-border",
+  none: "",
+};
+
+const CATEGORY_TITLE: Record<MenuTheme["style"]["categories"], string> = {
+  plain: "menu-display text-2xl font-semibold tracking-tight text-brand",
+  caps: "menu-display text-lg font-semibold tracking-[0.14em] text-brand uppercase",
+  underline: "menu-display border-b-2 border-brand pb-1.5 text-2xl font-semibold tracking-tight text-brand",
+  band: "menu-display rounded-(--menu-radius) bg-brand px-3 py-1.5 text-xl font-semibold tracking-tight text-brand-foreground",
+};
+
+/** Variables del diseño para un elemento (también para diálogos, que se muestran fuera de la carta). */
+export function themeStyle(theme: MenuTheme): CSSProperties {
+  return { ...themeCssVars(theme), colorScheme: isDarkTheme(theme) ? "dark" : "light" } as CSSProperties;
+}
+
 export function PublicMenu({
   data,
   serverNow,
   onProductView,
   onSearch,
+  pageBackground = false,
 }: {
   data: PublicMenuData;
   serverNow: number;
   onProductView?: (productId: string) => void;
   onSearch?: () => void;
+  /** Pinta también el fondo de la página (solo en la carta pública, no en las vistas previas del panel). */
+  pageBackground?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<SnapshotProduct | null>(null);
@@ -48,7 +71,9 @@ export function PublicMenu({
   const currency = data.menus[0]?.snapshot.currency ?? business.currency;
   const fmt = (minor: number | null) => (minor === null ? "" : formatMoney(minor, currency, business.locale));
   const q = nameKey(query);
-  const brandStyle = { "--brand": business.brand_color ?? "#214E3B" } as CSSProperties;
+  const theme = effectiveTheme(business.theme, business.brand_color);
+  const style = themeStyle(theme);
+  const centered = theme.style.header === "centered";
 
   const menus = useMemo(
     () =>
@@ -73,26 +98,32 @@ export function PublicMenu({
   }, [q, onSearch]);
 
   return (
-    <div style={brandStyle} className="min-h-dvh bg-background">
+    <div style={style} className="menu-body min-h-dvh bg-background text-foreground">
+      {/* Los colores ya están validados como #RRGGBB: no hay forma de inyectar CSS. */}
+      {pageBackground && <style>{`html,body{background:${theme.colors.background}}`}</style>}
       <div className="h-1.5 bg-brand" aria-hidden="true" />
       <header className="mx-auto max-w-3xl">
         {coverUrl && (
-          <div className="aspect-[16/7] w-full overflow-hidden sm:mt-4 sm:rounded-xl">
+          <div className="aspect-[16/7] w-full overflow-hidden sm:mt-4 sm:rounded-(--menu-radius)">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={coverUrl} alt="" className="size-full object-cover" fetchPriority="high" />
           </div>
         )}
-        <div className="px-4 pt-6 pb-4 sm:px-6">
-          <div className="flex items-start gap-4">
+        <div className={cn("px-4 pt-6 pb-4 sm:px-6", centered && "text-center")}>
+          <div className={cn("flex gap-4", centered ? "flex-col items-center" : "items-start")}>
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={`Logo de ${business.name}`} className="size-16 shrink-0 rounded-xl border border-border bg-card object-contain" />
+              <img
+                src={logoUrl}
+                alt={`Logo de ${business.name}`}
+                className={cn("shrink-0 rounded-(--menu-radius) border border-border bg-card object-contain", centered ? "size-20" : "size-16")}
+              />
             )}
             <div className="min-w-0">
-              <h1 className="font-display text-[34px] leading-[1.05] font-semibold tracking-tight text-balance text-brand sm:text-5xl">
+              <h1 className="menu-display text-[34px] leading-[1.05] font-semibold tracking-tight text-balance text-brand sm:text-5xl">
                 {business.name}
               </h1>
-              <p className="mt-1 flex items-center gap-1.5 text-base font-semibold">
+              <p className={cn("mt-1 flex items-center gap-1.5 text-base font-semibold", centered && "justify-center")}>
                 <Store className="size-4 text-muted-foreground" aria-hidden="true" />
                 {branch.name}
               </p>
@@ -100,7 +131,7 @@ export function PublicMenu({
           </div>
           {business.description && <p className="mt-3 text-pretty text-muted-foreground">{business.description}</p>}
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <div className={cn("mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm", centered && "justify-center")}>
             {status && status.state !== "unknown" && (
               <button
                 type="button"
@@ -146,12 +177,12 @@ export function PublicMenu({
             )}
           </div>
           {status?.state === "closed" && (
-            <p className="mt-2 rounded-lg border border-warning/25 bg-warning-surface px-3 py-2 text-sm text-warning" role="status">
+            <p className="mt-2 rounded-(--menu-radius) border border-warning/25 bg-warning-surface px-3 py-2 text-sm text-warning" role="status">
               El local está cerrado ahora. Igual podés consultar la carta.
             </p>
           )}
           {showHours && hours.some((d) => d.ranges.length) && (
-            <div id="horarios" className="mt-3 rounded-lg border border-border bg-card p-4 text-sm">
+            <div id="horarios" className={cn("mt-3 rounded-(--menu-radius) border border-border bg-card p-4 text-sm", centered && "text-left")}>
               <p className="mb-2 font-semibold">Horarios</p>
               <dl className="grid grid-cols-[7rem_1fr] gap-y-1">
                 {hours.map((d) => (
@@ -180,7 +211,7 @@ export function PublicMenu({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar en la carta"
-              className="h-11 w-full rounded-lg border border-input bg-card pr-10 pl-9 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
+              className="h-11 w-full rounded-(--menu-radius) border border-input bg-card pr-10 pl-9 text-base text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
             />
             {query && (
               <button
@@ -222,7 +253,7 @@ export function PublicMenu({
           </p>
         )}
         {total === 0 && q ? (
-          <div className="rounded-xl border border-dashed border-[#cdd3c9] bg-card p-8 text-center" role="status">
+          <div className="rounded-(--menu-radius) border border-dashed border-border bg-card p-8 text-center" role="status">
             <p className="font-semibold">No encontramos «{query}»</p>
             <p className="mt-1 text-sm text-muted-foreground">Probá con otra palabra o revisá la carta completa.</p>
             <button type="button" onClick={() => setQuery("")} className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand underline underline-offset-4">
@@ -230,23 +261,23 @@ export function PublicMenu({
             </button>
           </div>
         ) : total === 0 ? (
-          <p className="rounded-xl border border-dashed border-[#cdd3c9] bg-card p-8 text-center text-muted-foreground">
+          <p className="rounded-(--menu-radius) border border-dashed border-border bg-card p-8 text-center text-muted-foreground">
             La carta todavía no tiene productos.
           </p>
         ) : (
           menus.map((menu) => (
             <div key={menu.menu_id} className="mb-10">
               {data.menus.length > 1 && (
-                <h2 className="mb-4 font-display text-3xl font-semibold tracking-tight">{menu.snapshot.menu.name}</h2>
+                <h2 className="menu-display mb-4 text-3xl font-semibold tracking-tight">{menu.snapshot.menu.name}</h2>
               )}
               {menu.snapshot.menu.description && data.menus.length > 1 && <p className="-mt-2 mb-4 text-muted-foreground">{menu.snapshot.menu.description}</p>}
               {menu.categories.map((category) => (
                 <section key={category.id} id={`c-${category.id}`} aria-labelledby={`h-${category.id}`} className="mb-8 scroll-mt-36">
-                  <h3 id={`h-${category.id}`} className="font-display text-2xl font-semibold tracking-tight text-brand">
+                  <h3 id={`h-${category.id}`} className={CATEGORY_TITLE[theme.style.categories]}>
                     {category.name}
                   </h3>
                   {category.description && <p className="mt-1 text-sm text-muted-foreground">{category.description}</p>}
-                  <ul className="mt-3 divide-y divide-dashed divide-[#d5dacf]">
+                  <ul className={cn("mt-3", DIVIDERS[theme.style.dividers])}>
                     {category.products.map((product) => (
                       <li key={product.id}>
                         <ProductItem
@@ -267,14 +298,14 @@ export function PublicMenu({
         )}
 
         {branch.other_branches.length > 0 && (
-          <section aria-labelledby="otras-sucursales" className="mt-6 rounded-xl border border-border bg-card p-4">
+          <section aria-labelledby="otras-sucursales" className="mt-6 rounded-(--menu-radius) border border-border bg-card p-4">
             <h2 id="otras-sucursales" className="text-sm font-bold">
               Otras sucursales de {business.name}
             </h2>
             <ul className="mt-2 flex flex-wrap gap-2">
               {branch.other_branches.map((b) => (
                 <li key={b.public_slug}>
-                  <a href={`/m/${b.public_slug}`} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-sm font-semibold hover:bg-secondary">
+                  <a href={`/m/${b.public_slug}`} className="inline-flex min-h-11 items-center rounded-(--menu-radius) border border-border px-3 text-sm font-semibold hover:bg-secondary">
                     {b.name}
                   </a>
                 </li>
@@ -290,7 +321,7 @@ export function PublicMenu({
         <p className="mt-3">Carta digital hecha con CartaLista.</p>
       </footer>
 
-      <ProductDialog product={selected} fmt={fmt} onClose={() => setSelected(null)} />
+      <ProductDialog product={selected} fmt={fmt} style={style} onClose={() => setSelected(null)} />
     </div>
   );
 }
@@ -345,18 +376,28 @@ function ProductItem({ product, fmt, onOpen }: { product: SnapshotProduct; fmt: 
           height={96}
           loading="lazy"
           decoding="async"
-          className={cn("size-24 shrink-0 rounded-lg border border-border object-cover", soldOut && "grayscale")}
+          className={cn("size-24 shrink-0 rounded-(--menu-radius) border border-border object-cover", soldOut && "grayscale")}
         />
       )}
     </button>
   );
 }
 
-function ProductDialog({ product, fmt, onClose }: { product: SnapshotProduct | null; fmt: (m: number | null) => string; onClose: () => void }) {
+function ProductDialog({
+  product,
+  fmt,
+  style,
+  onClose,
+}: {
+  product: SnapshotProduct | null;
+  fmt: (m: number | null) => string;
+  style: CSSProperties;
+  onClose: () => void;
+}) {
   const image = product?.image ? publicMediaUrl(product.image.lg) : null;
   return (
     <Dialog open={Boolean(product)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+      <DialogContent style={style} className="menu-body gap-0 overflow-hidden rounded-(--menu-radius) bg-card p-0 text-foreground sm:max-w-md">
         {product && (
           <>
             {image && (
@@ -365,7 +406,7 @@ function ProductDialog({ product, fmt, onClose }: { product: SnapshotProduct | n
             )}
             <div className="grid gap-3 p-5">
               <DialogHeader className="text-left">
-                <DialogTitle className="font-display text-2xl font-semibold">{product.name}</DialogTitle>
+                <DialogTitle className="menu-display text-2xl font-semibold">{product.name}</DialogTitle>
                 {product.description ? (
                   <DialogDescription className="text-base text-muted-foreground">{product.description}</DialogDescription>
                 ) : (

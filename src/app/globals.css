@@ -30,6 +30,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-terracota: var(--terracota);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
@@ -81,6 +82,7 @@
 
   /* Color de marca del negocio en la carta pública (se reemplaza por negocio) */
   --brand: #214e3b;
+  --brand-foreground: #ffffff;
   --terracota: #b65335;
 
   /* Bordes decorativos (#DEE3DA) y borde de controles con contraste 3:1 */
@@ -129,6 +131,14 @@
   .font-display {
     font-family: var(--font-display);
     font-optical-sizing: auto;
+  }
+  /* Tipografías del diseño de la carta (variables en src/domain/theme.ts). */
+  .menu-display {
+    font-family: var(--menu-display, var(--font-fraunces)), ui-serif, Georgia, serif;
+    font-optical-sizing: auto;
+  }
+  .menu-body {
+    font-family: var(--menu-body, var(--font-manrope)), ui-sans-serif, system-ui, sans-serif;
   }
   .price {
     font-variant-numeric: tabular-nums;

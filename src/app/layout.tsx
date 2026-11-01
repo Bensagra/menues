@@ -3,6 +3,7 @@ import { Fraunces, Manrope } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
+import { menuFontVariables } from "./menu-fonts";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -33,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className={`${manrope.variable} ${fraunces.variable} h-full`}>
+    <html lang="es" className={`${manrope.variable} ${fraunces.variable} ${menuFontVariables} h-full`}>
       <body className="min-h-full">
         <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         <Toaster />

@@ -2,7 +2,7 @@
 
 **Tu carta actualizada, en minutos.** SaaS de menús digitales para restaurantes: crear el negocio y sus sucursales, cargar la carta a mano o desde fotos (leídas con Grok o Gemini), revisar cada cambio, publicar y compartir un QR que nunca cambia.
 
-- Panel del restaurante: cartas, categorías, productos con variantes y extras, precios y disponibilidad por sucursal, actualización con fotos y revisión de cambios, publicación por sucursal con historial y restauración, QR y difusión, estadísticas, menú del día y promociones, precios masivos, equipo con roles, plan y consumo.
+- Panel del restaurante: cartas, categorías, productos con variantes y extras, diseño de la carta a medida (propuesto con IA a partir del logo, las fotos y el sitio web del local), precios y disponibilidad por sucursal, actualización con fotos y revisión de cambios, publicación por sucursal con historial y restauración, QR y difusión, estadísticas, menú del día y promociones, precios masivos, equipo con roles, plan y consumo.
 - Carta pública por sucursal (`/m/<sucursal>`): rápida, sin cuenta, solo con lo publicado.
 - Administración de plataforma (`/admin`): negocios, usuarios, procesamientos, planes y límites, auditoría.
 
@@ -119,6 +119,15 @@ Para quitar el acceso: `npm run admin:revoke -- --email persona@empresa.com`.
 4. **Storage**: los buckets (`import-originals` y `uploads` privados, `public-media` público con rutas no adivinables) los crea la migración. No agregues políticas públicas.
 5. Primer administrador: ver el procedimiento de arriba.
 
+## Diseño de la carta a medida
+
+En **Diseño** (panel del local, permiso de dueño o administrador) se elige cómo se ve la carta pública: 5 colores, letra de títulos y de textos, encabezado, títulos de categorías, separadores y esquinas.
+
+- **Propuesta con IA**: el worker mira el logo, la foto de portada, la foto de la última importación y el sitio web del local, y propone un diseño con una explicación breve. El dueño lo ve en una vista previa con su carta real y lo aplica, lo ajusta o pide otro. Se pide solo una vez de forma automática, después de la primera importación con fotos; a mano, hasta 10 por día.
+- **Siempre legible**: cualquier combinación con poco contraste se avisa, se puede corregir con un clic y la base la rechaza.
+- **Sitio web**: se carga en el alta del local o en *Diseño*. Instagram, Facebook y TikTok no se pueden leer sin iniciar sesión. Buscar al local en Google necesitaría la búsqueda de Gemini, que no está en el nivel gratuito: no se usa.
+- Usa el mismo proveedor y la misma cuota de IA que las fotos (`AI_PROVIDER`). Sin IA configurada, el diseño se puede ajustar a mano igual.
+
 ## IA para leer fotos
 
 Hay dos proveedores reales, que se eligen con `AI_PROVIDER`. Los dos usan las mismas instrucciones y el mismo esquema, no reciben herramientas, y su salida se vuelve a validar en el servidor. Cambiar de uno a otro no requiere tocar la base ni la app.
@@ -127,7 +136,7 @@ Hay dos proveedores reales, que se eligen con `AI_PROVIDER`. Los dos usan las mi
 
 1. Creá una clave en https://aistudio.google.com/apikey y cargala como `GEMINI_API_KEY` **en el worker**.
 2. `GEMINI_MODEL` (por defecto `gemini-3.5-flash`). En noviembre de 2026 fue el más estable en las pruebas: 6 a 45 s por foto. `gemini-3.8-flash` también lee bien, pero tardaba 2 a 3 minutos y respondía seguido «demanda alta» (503). `gemini-2.5-*` ya no está disponible para claves nuevas.
-3. **Nivel gratuito**: sin tarjeta, con un límite diario de pedidos que Google muestra en AI Studio. Si se agota, el worker reintenta con la espera que indica Google y, tras `IMPORT_MAX_ATTEMPTS` intentos, la importación queda como fallida y la cuota del plan se libera. En el nivel gratuito Google puede usar el contenido enviado para mejorar sus productos (una carta es información pública). Con facturación activada en el proyecto de Google ya no hay límite diario, pero se cobra por uso.
+3. **Nivel gratuito**: sin tarjeta, con un cupo diario por modelo (en noviembre de 2026, 20 pedidos por día; cada foto o propuesta de diseño es un pedido; se ve en AI Studio). Si se agota el del modelo principal, el worker usa los de `GEMINI_FALLBACK_MODELS` (por defecto `gemini-3.8-flash`, que tiene su propio cupo). Si se agotan todos, la importación o la propuesta fallan enseguida con un mensaje claro, sin consumir la cuota del plan, y se pueden reintentar al día siguiente. Los límites por minuto, en cambio, se reintentan solos. En el nivel gratuito Google puede usar el contenido enviado para mejorar sus productos (una carta es información pública). Con facturación activada en el proyecto de Google ya no hay límite diario, pero se cobra por uso.
 4. El adaptador usa `generateContent` con `store: false`, `responseJsonSchema`, resolución de imagen alta y la clave en el encabezado `x-goog-api-key`. Gemini rechaza los esquemas con muchos `maxItems` anidados, así que se envían sin ellos; los límites los aplica la validación del servidor.
 5. Prueba real opcional: `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 GEMINI_LIVE_TEST=1 npm run test:integration -- gemini-live`.
 

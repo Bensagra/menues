@@ -2,6 +2,7 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { snapshotSchema } from "@/domain/snapshot";
+import { parseTheme } from "@/domain/theme";
 import { createAnonClient } from "@/lib/supabase/service";
 import { publicMenuTag } from "@/server/cache";
 import type { PublicMenuData } from "@/components/menu/types";
@@ -15,6 +16,8 @@ const okSchema = z.object({
     name: z.string(),
     description: z.string(),
     brand_color: z.string().nullable(),
+    // Un diseño inválido (no debería existir: lo valida la base) se ignora y se usa el estándar.
+    theme: z.unknown().optional().transform((value) => parseTheme(value)),
     currency: z.string(),
     locale: z.string(),
     logo: media,

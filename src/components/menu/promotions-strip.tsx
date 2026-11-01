@@ -43,14 +43,14 @@ export function PromotionsStrip({
         Hoy en el local
       </h2>
       {active.map(({ p, state }) => (
-        <article key={p.id} className="rounded-xl border border-brand/25 bg-card p-5 shadow-xs">
+        <article key={p.id} className="rounded-(--menu-radius) border border-brand/25 bg-card p-5 shadow-xs">
           <p className="flex items-center gap-1.5 text-[13px] font-semibold tracking-wide text-brand uppercase">
             {p.kind === "daily_menu" ? <UtensilsCrossed className="size-4" aria-hidden="true" /> : <CalendarClock className="size-4" aria-hidden="true" />}
             {p.kind === "daily_menu" ? "Menú del día" : "Promoción"}
             {state.kind === "active" && <span className="font-medium tracking-normal text-muted-foreground normal-case">· hasta las {shortTime(state.until)} h</span>}
           </p>
           <div className="mt-1 flex items-baseline justify-between gap-4">
-            <h3 className="font-display text-2xl font-semibold tracking-tight text-balance">{p.title}</h3>
+            <h3 className="menu-display text-2xl font-semibold tracking-tight text-balance">{p.title}</h3>
             {fmt(p.price_minor) && <p className="price shrink-0 text-lg font-semibold">{fmt(p.price_minor)}</p>}
           </div>
           {p.items.length > 0 && (
@@ -69,7 +69,7 @@ export function PromotionsStrip({
         </article>
       ))}
       {later.map(({ p, state }) => (
-        <p key={p.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+        <p key={p.id} className="flex items-center gap-2 rounded-(--menu-radius) border border-border bg-card px-4 py-3 text-sm">
           <CalendarClock className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>
             <strong>Hoy desde las {state.kind === "scheduled" ? shortTime(state.next.time) : ""} h:</strong> {p.title}

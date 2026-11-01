@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowUpRight, BookOpen, Camera, CircleCheck, Circle, PencilLine, QrCode, Settings2, TriangleAlert } from "lucide-react";
+import { ArrowUpRight, BookOpen, Camera, CircleCheck, Circle, Loader2, Palette, PencilLine, QrCode, Settings2, Sparkles, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { ImportStatusBadge, PublishStateBadge } from "@/components/app/status";
 import { PageSkeleton } from "@/components/app/states";
@@ -14,6 +14,7 @@ import { getBusinessContext } from "@/server/auth";
 import { getAiAvailability } from "@/server/ai-availability";
 import { getHomeData } from "@/server/queries/home";
 import { publicMenuUrl } from "@/server/queries/common";
+import { createClient } from "@/server/supabase/server";
 
 export const metadata: Metadata = { title: "Inicio" };
 
@@ -28,7 +29,7 @@ export default function HomePage(props: PageProps<"/panel/[negocio]">) {
 async function Home({ params }: { params: PageProps<"/panel/[negocio]">["params"] }) {
   const { negocio } = await params;
   const ctx = await getBusinessContext(negocio);
-  const [data, ai] = await Promise.all([getHomeData(ctx), getAiAvailability()]);
+  const [data, ai, design] = await Promise.all([getHomeData(ctx), getAiAvailability(), getDesignState(ctx)]);
   const base = `/panel/${ctx.business.slug}`;
   const branch = ctx.activeBranch;
   const tz = branch?.timezone ?? "America/Argentina/Buenos_Aires";
@@ -82,6 +83,37 @@ async function Home({ params }: { params: PageProps<"/panel/[negocio]">["params"
               </span>
             )}
           </div>
+        </section>
+      )}
+
+      {design && (
+        <section aria-labelledby="diseno-carta" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="flex items-start gap-3">
+            {design === "processing" ? (
+              <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-primary" aria-hidden="true" />
+            ) : design === "ready" ? (
+              <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+            ) : (
+              <Palette className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+            )}
+            <div>
+              <h2 id="diseno-carta" className="font-bold">
+                {design === "ready"
+                  ? "Te armamos un diseño a medida para tu carta"
+                  : design === "processing"
+                    ? "Estamos armando un diseño a medida para tu carta"
+                    : "Dale a tu carta la cara de tu local"}
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {design === "none"
+                  ? "Te proponemos colores, letras y estilo a partir de tu logo, tus fotos y tu sitio web."
+                  : "Con los colores y la letra de tu local. Miralo en la vista previa y aplicalo si te gusta."}
+              </p>
+            </div>
+          </div>
+          <Button asChild variant={design === "ready" ? "default" : "outline"} className="shrink-0">
+            <Link href={`${base}/diseno`}>{design === "ready" ? "Ver propuesta" : design === "processing" ? "Ver estado" : "Armar mi diseño"}</Link>
+          </Button>
         </section>
       )}
 
@@ -243,4 +275,18 @@ function QuickLink({ href, icon: Icon, label }: { href: string; icon: typeof Boo
       {label}
     </Link>
   );
+}
+
+/** Aviso del diseño a medida: propuesta lista, en curso o sin diseño propio todavía. */
+async function getDesignState(ctx: Awaited<ReturnType<typeof getBusinessContext>>): Promise<"ready" | "processing" | "none" | null> {
+  if (!ctx.permissions["business.update"]) return null;
+  const supabase = await createClient();
+  const [{ data: business }, { data: request }] = await Promise.all([
+    supabase.from("businesses").select("theme").eq("id", ctx.business.id).single(),
+    supabase.from("design_requests").select("status").eq("business_id", ctx.business.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (request?.status === "ready") return "ready";
+  if (request?.status === "pending" || request?.status === "processing") return "processing";
+  if (!business?.theme && !request) return "none";
+  return null;
 }

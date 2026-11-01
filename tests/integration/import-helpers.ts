@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { ProviderError, type MenuExtractionProvider } from "@/ai/types";
 import type { PageExtraction } from "@/domain/extraction";
+import { DEFAULT_THEME, type MenuTheme } from "@/domain/theme";
 import { inspectImage } from "@/lib/images";
 import { processImport } from "../../worker/process-import";
 import { menuImage } from "../helpers/menu-image";
@@ -18,7 +19,19 @@ export class TestProvider implements MenuExtractionProvider {
     if ("fail" in this.result) throw new ProviderError(this.result.fail, `falla de prueba: ${this.result.fail}`);
     return { data: this.result, model: "test", usage: { input_tokens: 10, output_tokens: 5, cost_usd_ticks: 0 } };
   }
+  designCalls: { images: string[]; context: string }[] = [];
+  async designTheme(input: { images: { label: string }[]; context: string }) {
+    this.designCalls.push({ images: input.images.map((i) => i.label), context: input.context });
+    if ("fail" in this.result) throw new ProviderError(this.result.fail, `falla de prueba: ${this.result.fail}`);
+    return { data: { theme: TEST_THEME, summary: "Propuesta de prueba." }, model: "test", usage: { input_tokens: 10, output_tokens: 5, cost_usd_ticks: 0 } };
+  }
 }
+
+export const TEST_THEME: MenuTheme = {
+  ...DEFAULT_THEME,
+  colors: { ...DEFAULT_THEME.colors, accent: "#7A2341" },
+  fonts: { display: "playfair", body: "dm_sans" },
+};
 
 export function page(categories: PageExtraction["categories"]): PageExtraction {
   return { page_readable: true, page_notes: null, currency_text: "$", categories };

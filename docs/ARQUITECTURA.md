@@ -101,6 +101,16 @@ Reglas del motor (`src/domain/diff.ts`, probado):
 - Una foto repetida no duplica productos; coincidencias inciertas se presentan como "¿es el mismo producto?".
 - Los cambios aprobados se aplican al borrador en una transacción, verificando la revisión base de cada producto: si alguien editó mientras se revisaba, se informa el conflicto y no se aplica a medias.
 
+## Diseño de la carta a medida
+
+- **Qué se guarda**: `businesses.theme` (paleta de 5 colores, letra de títulos y de textos, y 4 opciones de estilo) y `businesses.website_url`. Todo sale de listas cerradas (`src/domain/theme.ts`): nunca hay CSS libre, así que ni la IA ni el dueño pueden inyectar estilos. Sin diseño propio se usa el estándar con `brand_color`.
+- **Contraste garantizado**: texto, texto secundario y color de marca deben alcanzar 4.5:1 sobre el fondo y sobre las tarjetas. `themeIssues()` es la regla en la app, `app.is_valid_theme()` la repite en la base como CHECK (una prueba compara las dos con paletas al azar) y `fixTheme()` corrige una paleta cambiando lo mínimo.
+- **Propuestas con IA** (`design_requests`, misma cola con lease y reintentos que las importaciones): el worker junta las referencias del local (logo, foto de portada, la primera foto de su última importación y su sitio web) y le pide al proveedor (Gemini o Grok) un diseño con salida estructurada. El modelo no recibe herramientas; la respuesta se valida y se corrige antes de guardarse. El dueño la ve en una vista previa con su carta real y decide si la aplica.
+- **Cuándo se pide**: a mano desde *Diseño* (máximo 10 por día por local, una en curso a la vez) y, una sola vez, automáticamente después de la primera importación con fotos.
+- **Sitio web**: la URL la escribe el dueño, así que el worker la trata como no confiable (`worker/website.ts`): solo http(s), puertos 80/443, sin credenciales, y cada redirección y cada resolución de DNS se verifican contra direcciones privadas o reservadas (protege de SSRF y DNS rebinding). Límite de tamaño y tiempo; solo se leen hojas de estilo del mismo sitio. Lo extraído (título, colores, tipografías, imagen principal) va al modelo como datos.
+- **Sin búsqueda web**: la búsqueda en Google de Gemini no está en el nivel gratuito, así que no se busca al local en internet. Instagram, Facebook y TikTok no se pueden leer sin iniciar sesión: se guardan pero no se usan.
+- **Carta pública**: el diseño reemplaza los tokens de color dentro de la carta (también en el diálogo de producto, que se muestra fuera del árbol) y elige las fuentes (`next/font`, sin precarga: cada archivo se descarga solo si una carta lo usa). En fondos oscuros, los colores de estado (abierto, cerrado) se recalculan para seguir siendo legibles. Aplicar o guardar un diseño invalida la caché de las cartas del local.
+
 ## Precios masivos
 
 - Por porcentaje o importe fijo, con redondeo por moneda (por ejemplo a $100 en ARS o 0,05 en USD), en toda la carta o en categorías, sobre el **precio general** o sobre el **precio propio de una sucursal**.

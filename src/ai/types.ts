@@ -1,3 +1,4 @@
+import type { DesignProposal } from "@/domain/design-proposal";
 import type { PageExtraction } from "@/domain/extraction";
 
 // Interfaz del proveedor de extracción (Grok, Gemini o el simulado). Permite sumar otro
@@ -29,18 +30,42 @@ export interface ExtractPageResult {
   model: string;
 }
 
+export interface DesignImage {
+  /** Qué es la imagen (por ejemplo "logo"), para que el modelo sepa cómo usarla. */
+  label: string;
+  image: Buffer;
+  mimeType: "image/jpeg" | "image/png";
+}
+
+export interface DesignThemeInput {
+  images: DesignImage[];
+  /** Datos del local (nombre, secciones, platos, sitio web). Texto no confiable. */
+  context: string;
+  safetyIdentifier: string;
+  signal: AbortSignal;
+}
+
+export interface DesignThemeResult {
+  data: DesignProposal;
+  usage: ExtractionUsage;
+  model: string;
+}
+
 export interface MenuExtractionProvider {
   readonly name: "xai" | "gemini" | "mock";
   readonly model: string;
   /** true solo para el proveedor de pruebas: sus resultados nunca se presentan como reales. */
   readonly simulated: boolean;
   extractPage(input: ExtractPageInput): Promise<ExtractPageResult>;
+  /** Propone el diseño de la carta a partir de las referencias del local. */
+  designTheme(input: DesignThemeInput): Promise<DesignThemeResult>;
 }
 
 export type ProviderErrorCode =
   | "not_configured"
   | "timeout"
   | "rate_limited"
+  | "quota_exhausted"
   | "unavailable"
   | "auth"
   | "bad_request"

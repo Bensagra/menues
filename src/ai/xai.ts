@@ -1,6 +1,16 @@
+import { DESIGN_JSON_SCHEMA, parseDesignProposal } from "@/domain/design-proposal";
 import { PAGE_EXTRACTION_JSON_SCHEMA, parsePageExtraction } from "@/domain/extraction";
+import { DESIGN_INSTRUCTIONS, designContextText } from "./design-prompt";
 import { EXTRACTION_INSTRUCTIONS, pageUserText } from "./prompt";
-import { ProviderError, retryAfterSeconds as retryAfter, type ExtractPageInput, type ExtractPageResult, type MenuExtractionProvider } from "./types";
+import {
+  ProviderError,
+  retryAfterSeconds as retryAfter,
+  type DesignThemeInput,
+  type DesignThemeResult,
+  type ExtractPageInput,
+  type ExtractPageResult,
+  type MenuExtractionProvider,
+} from "./types";
 
 // Adaptador de la Responses API de xAI (POST {base}/responses).
 // Documentación consultada: docs.x.ai › Responses, Image Understanding,
@@ -34,6 +44,16 @@ interface ResponsesBody {
   usage?: { input_tokens?: number; output_tokens?: number; cost_in_usd_ticks?: number | null };
 }
 
+interface XaiCall {
+  instructions: string;
+  content: unknown[];
+  schemaName: string;
+  schema: unknown;
+  safetyIdentifier: string;
+  cacheKey?: string;
+  signal: AbortSignal;
+}
+
 export class XaiMenuExtractionProvider implements MenuExtractionProvider {
   readonly name = "xai" as const;
   readonly simulated = false;
@@ -45,31 +65,61 @@ export class XaiMenuExtractionProvider implements MenuExtractionProvider {
   }
 
   async extractPage(input: ExtractPageInput): Promise<ExtractPageResult> {
+    const { parsed, json } = await this.respond({
+      instructions: EXTRACTION_INSTRUCTIONS,
+      content: [
+        { type: "input_image", image_url: `data:${input.mimeType};base64,${input.image.toString("base64")}`, detail: "high" },
+        { type: "input_text", text: pageUserText(input.pageNumber, input.pageCount) },
+      ],
+      schemaName: "menu_page_extraction",
+      schema: PAGE_EXTRACTION_JSON_SCHEMA,
+      safetyIdentifier: input.safetyIdentifier,
+      cacheKey: input.cacheKey,
+      signal: input.signal,
+    });
+    const validated = parsePageExtraction(parsed);
+    if (!validated.ok) throw new ProviderError("invalid_output", `La respuesta no respeta la estructura esperada: ${validated.error}`);
+    return { data: validated.data, model: json.model ?? this.config.model, usage: usageOf(json) };
+  }
+
+  async designTheme(input: DesignThemeInput): Promise<DesignThemeResult> {
+    // Cada imagen va precedida de su etiqueta para que el modelo sepa qué es.
+    const content: unknown[] = input.images.flatMap((image, i) => [
+      { type: "input_text", text: `Image ${i + 1}: ${image.label}` },
+      { type: "input_image", image_url: `data:${image.mimeType};base64,${image.image.toString("base64")}`, detail: "high" },
+    ]);
+    content.push({ type: "input_text", text: designContextText(input.context, input.images.map((image) => image.label)) });
+    const { parsed, json } = await this.respond({
+      instructions: DESIGN_INSTRUCTIONS,
+      content,
+      schemaName: "menu_design",
+      schema: DESIGN_JSON_SCHEMA,
+      safetyIdentifier: input.safetyIdentifier,
+      signal: input.signal,
+    });
+    const validated = parseDesignProposal(parsed);
+    if (!validated.ok) throw new ProviderError("invalid_output", `La respuesta no respeta la estructura esperada: ${validated.error}`);
+    return { data: validated.data, model: json.model ?? this.config.model, usage: usageOf(json) };
+  }
+
+  private async respond(call: XaiCall): Promise<{ parsed: unknown; json: ResponsesBody }> {
     const body = {
       model: this.config.model,
       store: false,
-      instructions: EXTRACTION_INSTRUCTIONS,
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_image", image_url: `data:${input.mimeType};base64,${input.image.toString("base64")}`, detail: "high" },
-            { type: "input_text", text: pageUserText(input.pageNumber, input.pageCount) },
-          ],
-        },
-      ],
+      instructions: call.instructions,
+      input: [{ role: "user", content: call.content }],
       text: {
-        format: { type: "json_schema", name: "menu_page_extraction", schema: PAGE_EXTRACTION_JSON_SCHEMA, strict: true },
+        format: { type: "json_schema", name: call.schemaName, schema: call.schema, strict: true },
       },
       max_output_tokens: this.config.maxOutputTokens,
       temperature: 0,
-      safety_identifier: input.safetyIdentifier,
-      prompt_cache_key: input.cacheKey,
+      safety_identifier: call.safetyIdentifier,
+      ...(call.cacheKey ? { prompt_cache_key: call.cacheKey } : {}),
       ...(this.config.reasoningEffort ? { reasoning: { effort: this.config.reasoningEffort } } : {}),
     };
 
     const timeout = AbortSignal.timeout(this.config.timeoutMs);
-    const signal = AbortSignal.any([input.signal, timeout]);
+    const signal = AbortSignal.any([call.signal, timeout]);
     const doFetch = this.config.fetchImpl ?? fetch;
     let response: Response;
     try {
@@ -81,7 +131,7 @@ export class XaiMenuExtractionProvider implements MenuExtractionProvider {
       });
     } catch (error) {
       if (timeout.aborted) throw new ProviderError("timeout", `Sin respuesta del proveedor en ${Math.round(this.config.timeoutMs / 1000)} s`);
-      if (input.signal.aborted) throw new ProviderError("network", "Procesamiento cancelado");
+      if (call.signal.aborted) throw new ProviderError("network", "Procesamiento cancelado");
       throw new ProviderError("network", `No se pudo conectar con el proveedor (${(error as Error).name})`);
     }
 
@@ -111,23 +161,18 @@ export class XaiMenuExtractionProvider implements MenuExtractionProvider {
       throw new ProviderError("incomplete", `Respuesta incompleta${json.incomplete_details?.reason ? ` (${json.incomplete_details.reason})` : ""}`);
     }
 
-    let parsed: unknown;
     try {
-      parsed = JSON.parse(text);
+      return { parsed: JSON.parse(text), json };
     } catch {
       throw new ProviderError("invalid_output", "El modelo no devolvió JSON válido");
     }
-    const validated = parsePageExtraction(parsed);
-    if (!validated.ok) throw new ProviderError("invalid_output", `La respuesta no respeta la estructura esperada: ${validated.error}`);
-
-    return {
-      data: validated.data,
-      model: json.model ?? this.config.model,
-      usage: {
-        input_tokens: json.usage?.input_tokens ?? 0,
-        output_tokens: json.usage?.output_tokens ?? 0,
-        cost_usd_ticks: json.usage?.cost_in_usd_ticks ?? 0,
-      },
-    };
   }
+}
+
+function usageOf(json: ResponsesBody) {
+  return {
+    input_tokens: json.usage?.input_tokens ?? 0,
+    output_tokens: json.usage?.output_tokens ?? 0,
+    cost_usd_ticks: json.usage?.cost_in_usd_ticks ?? 0,
+  };
 }

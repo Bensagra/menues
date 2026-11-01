@@ -41,5 +41,5 @@ export function PublicMenuClient({ data, serverNow }: { data: PublicMenuData; se
   );
   const onSearch = useCallback(() => track(slug, "search"), [slug]);
 
-  return <PublicMenu data={data} serverNow={serverNow} onProductView={onProductView} onSearch={onSearch} />;
+  return <PublicMenu data={data} serverNow={serverNow} onProductView={onProductView} onSearch={onSearch} pageBackground />;
 }

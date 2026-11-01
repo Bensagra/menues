@@ -85,14 +85,14 @@ isOneToOne: false
                   ]
                 },"businesses": {
                   Row: {
-                    "brand_color": string | null,"cover_media_id": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string,"id": string,"locale": string,"logo_media_id": string | null,"name": string,"slug": string,"status": string,"suspended_at": string | null,"suspended_by": string | null,"suspended_reason": string | null,"updated_at": string
+                    "brand_color": string | null,"cover_media_id": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string,"id": string,"locale": string,"logo_media_id": string | null,"name": string,"slug": string,"status": string,"suspended_at": string | null,"suspended_by": string | null,"suspended_reason": string | null,"theme": Json | null,"updated_at": string,"website_url": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "brand_color"?: string | null,"cover_media_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"locale"?: string,"logo_media_id"?: string | null,"name": string,"slug": string,"status"?: string,"suspended_at"?: string | null,"suspended_by"?: string | null,"suspended_reason"?: string | null,"updated_at"?: string
+                    "brand_color"?: string | null,"cover_media_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"locale"?: string,"logo_media_id"?: string | null,"name": string,"slug": string,"status"?: string,"suspended_at"?: string | null,"suspended_by"?: string | null,"suspended_reason"?: string | null,"theme"?: Json | null,"updated_at"?: string,"website_url"?: string | null
                   }
                   Update: {
-                    "brand_color"?: string | null,"cover_media_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"locale"?: string,"logo_media_id"?: string | null,"name"?: string,"slug"?: string,"status"?: string,"suspended_at"?: string | null,"suspended_by"?: string | null,"suspended_reason"?: string | null,"updated_at"?: string
+                    "brand_color"?: string | null,"cover_media_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"locale"?: string,"logo_media_id"?: string | null,"name"?: string,"slug"?: string,"status"?: string,"suspended_at"?: string | null,"suspended_by"?: string | null,"suspended_reason"?: string | null,"theme"?: Json | null,"updated_at"?: string,"website_url"?: string | null
                   }
                   Relationships: [
                     {
@@ -126,6 +126,32 @@ isOneToOne: false
       columns: ["business_id","menu_id"]
 isOneToOne: false
       referencedRelation: "menus"
+      referencedColumns: ["business_id","id"]
+    }
+                  ]
+                },"design_requests": {
+                  Row: {
+                    "applied_at": string | null,"attempts": number,"business_id": string,"completed_at": string | null,"created_at": string,"error_code": string | null,"error_message": string | null,"id": string,"import_id": string | null,"lock_token": string | null,"locked_by": string | null,"locked_until": string | null,"max_attempts": number,"model": string | null,"next_attempt_at": string,"origin": string,"provider": string | null,"requested_by": string | null,"sources": (string)[],"status": string,"summary": string,"theme": Json | null,"updated_at": string,"website_url": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "applied_at"?: string | null,"attempts"?: number,"business_id": string,"completed_at"?: string | null,"created_at"?: string,"error_code"?: string | null,"error_message"?: string | null,"id"?: string,"import_id"?: string | null,"lock_token"?: string | null,"locked_by"?: string | null,"locked_until"?: string | null,"max_attempts"?: number,"model"?: string | null,"next_attempt_at"?: string,"origin": string,"provider"?: string | null,"requested_by"?: string | null,"sources"?: (string)[],"status"?: string,"summary"?: string,"theme"?: Json | null,"updated_at"?: string,"website_url"?: string | null
+                  }
+                  Update: {
+                    "applied_at"?: string | null,"attempts"?: number,"business_id"?: string,"completed_at"?: string | null,"created_at"?: string,"error_code"?: string | null,"error_message"?: string | null,"id"?: string,"import_id"?: string | null,"lock_token"?: string | null,"locked_by"?: string | null,"locked_until"?: string | null,"max_attempts"?: number,"model"?: string | null,"next_attempt_at"?: string,"origin"?: string,"provider"?: string | null,"requested_by"?: string | null,"sources"?: (string)[],"status"?: string,"summary"?: string,"theme"?: Json | null,"updated_at"?: string,"website_url"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "design_requests_business_id_fkey"
+      columns: ["business_id"]
+isOneToOne: false
+      referencedRelation: "businesses"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "design_requests_business_id_import_id_fkey"
+      columns: ["business_id","import_id"]
+isOneToOne: false
+      referencedRelation: "imports"
       referencedColumns: ["business_id","id"]
     }
                   ]
@@ -904,6 +930,9 @@ isOneToOne: false
 "apply_import":
 { Args: { "p_import_id": string }; Returns: Json
                            },
+"apply_menu_design":
+{ Args: { "p_request_id": string }; Returns: string
+                           },
 "apply_price_changes":
 { Args: { "p_branch_id": string,"p_changes": Json,"p_idempotency_key": string,"p_menu_id": string,"p_rule": Json }; Returns: Json
                            },
@@ -995,6 +1024,9 @@ isOneToOne: false
 "reorder_products":
 { Args: { "p_category_id": string,"p_product_ids": (string)[] }; Returns: undefined
                            },
+"request_menu_design":
+{ Args: { "p_business_id": string }; Returns: Json
+                           },
 "restore_menu_version":
 { Args: { "p_idempotency_key": string,"p_restore_draft"?: boolean,"p_version_id": string }; Returns: Json
                            },
@@ -1034,8 +1066,14 @@ isOneToOne: false
 "set_business_media":
 { Args: { "p_business_id": string,"p_kind": string,"p_media_id": string }; Returns: undefined
                            },
+"set_business_website":
+{ Args: { "p_business_id": string,"p_website_url": string }; Returns: undefined
+                           },
 "set_menu_branches":
 { Args: { "p_branch_ids": (string)[],"p_menu_id": string }; Returns: Json
+                           },
+"set_menu_theme":
+{ Args: { "p_business_id": string,"p_theme": Json }; Returns: undefined
                            },
 "set_product_status":
 { Args: { "p_product_id": string,"p_status": string }; Returns: number
@@ -1070,14 +1108,23 @@ isOneToOne: false
 "update_my_profile":
 { Args: { "p_full_name": string }; Returns: undefined
                            },
+"worker_claim_design":
+{ Args: { "p_lease_seconds"?: number,"p_worker_id": string }; Returns: Json
+                           },
 "worker_claim_import":
 { Args: { "p_lease_seconds"?: number,"p_worker_id": string }; Returns: Json
+                           },
+"worker_complete_design":
+{ Args: { "p_lock_token": string,"p_model": string,"p_provider": string,"p_request_id": string,"p_sources": (string)[],"p_summary": string,"p_theme": Json }; Returns: undefined
                            },
 "worker_complete_import":
 { Args: { "p_base_state": Json,"p_extraction": Json,"p_import_id": string,"p_lock_token": string,"p_proposals": Json,"p_summary": Json }; Returns: undefined
                            },
 "worker_expire_uploads":
 { Args: { "p_limit"?: number,"p_older_than_minutes"?: number }; Returns: Json
+                           },
+"worker_fail_design":
+{ Args: { "p_error_code": string,"p_error_message": string,"p_lock_token": string,"p_request_id": string,"p_retry_after_seconds"?: number,"p_retryable": boolean }; Returns: string
                            },
 "worker_fail_import":
 { Args: { "p_error_code": string,"p_error_message": string,"p_import_id": string,"p_lock_token": string,"p_retry_after_seconds"?: number,"p_retryable": boolean }; Returns: string
@@ -1090,6 +1137,9 @@ isOneToOne: false
                            },
 "worker_progress":
 { Args: { "p_import_id": string,"p_lease_seconds"?: number,"p_lock_token": string,"p_stage": string,"p_stage_page"?: number }; Returns: string
+                           },
+"worker_request_design_from_import":
+{ Args: { "p_import_id": string }; Returns: string
                            },
 "worker_save_page":
 { Args: { "p_extraction": Json,"p_image_id": string,"p_import_id": string,"p_lock_token": string,"p_model": string,"p_provider": string,"p_usage": Json }; Returns: undefined

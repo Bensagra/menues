@@ -4,6 +4,7 @@ import { z } from "zod";
 import { isCurrencyCode } from "@/domain/money";
 import { isValidSlug } from "@/domain/text";
 import { isValidTimezone } from "@/domain/time";
+import { websiteSchema } from "@/domain/website";
 import { authedAction, parseInput, rpc } from "@/server/action";
 
 const slug = z.string().trim().toLowerCase().refine(isValidSlug, "Usá solo minúsculas, números y guiones (de 3 a 60 caracteres).");
@@ -16,6 +17,7 @@ const createBusinessSchema = z.object({
   branchSlug: slug,
   timezone: z.string().refine(isValidTimezone, "Elegí una zona horaria."),
   address: z.string().trim().max(200).default(""),
+  websiteUrl: websiteSchema.default(""),
 });
 
 export async function createBusinessAction(input: z.input<typeof createBusinessSchema>) {
@@ -31,6 +33,11 @@ export async function createBusinessAction(input: z.input<typeof createBusinessS
       p_address: data.address,
       p_menu_name: "Carta",
     });
+    if (data.websiteUrl) {
+      // Se usa para inspirar el diseño de la carta. Si falla, el negocio ya está creado y se puede cargar después.
+      const { data: business } = await supabase.from("businesses").select("id").eq("slug", result.business_slug).single();
+      if (business) await supabase.rpc("set_business_website", { p_business_id: business.id, p_website_url: data.websiteUrl });
+    }
     return { businessSlug: result.business_slug, menuId: result.menu_id };
   });
 }

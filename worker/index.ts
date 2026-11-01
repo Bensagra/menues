@@ -5,13 +5,16 @@ import { aiStatus, serverEnv } from "@/lib/env";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/types/database";
 import { log } from "./log";
+import { processDesign } from "./process-design";
 import { processImport } from "./process-import";
 
-// Worker de importaciones. Proceso Node de larga duración (o --once para
-// ejecutarlo desde un cron). Toma trabajos de la tabla imports con lease y
-// token, así que se pueden correr varias instancias sin duplicar trabajo.
+// Worker de importaciones y propuestas de diseño. Proceso Node de larga
+// duración (o --once para ejecutarlo desde un cron). Toma trabajos de las tablas
+// imports y design_requests con lease y token, así que se pueden correr varias
+// instancias sin duplicar trabajo.
 
 type ImportRow = Database["public"]["Tables"]["imports"]["Row"];
+type DesignRow = Database["public"]["Tables"]["design_requests"]["Row"];
 
 const VERSION = "1.0.0";
 const once = process.argv.includes("--once");
@@ -77,6 +80,15 @@ async function main() {
     return (data as ImportRow | null) ?? null;
   };
 
+  const claimDesign = async (): Promise<DesignRow | null> => {
+    const { data, error } = await db.rpc("worker_claim_design", { p_worker_id: workerId, p_lease_seconds: env.worker.leaseSeconds });
+    if (error) {
+      log.error("no se pudo tomar una propuesta de diseño", { detail: error.message });
+      return null;
+    }
+    return (data as DesignRow | null) ?? null;
+  };
+
   // Limpieza de importaciones abandonadas durante la subida (no reservaron cuota).
   const expireUploads = async () => {
     const { data, error } = await db.rpc("worker_expire_uploads", { p_older_than_minutes: env.worker.uploadTtlMinutes, p_limit: 100 });
@@ -109,6 +121,16 @@ async function main() {
           signal: controller.signal,
         })
           .catch((error) => log.error("fallo no controlado", { importId: job.id, detail: String(error) }))
+          .finally(() => active.delete(task));
+        active.add(task);
+      }
+      // Las propuestas de diseño comparten la concurrencia (y la cuota de la IA) con las importaciones.
+      while (!stopping && active.size < env.worker.concurrency) {
+        const job = await claimDesign();
+        if (!job) break;
+        log.info("propuesta de diseño tomada", { designId: job.id, attempt: job.attempts });
+        const task = processDesign(job, { db, provider, signal: controller.signal })
+          .catch((error) => log.error("fallo no controlado (diseño)", { designId: job.id, detail: String(error) }))
           .finally(() => active.delete(task));
         active.add(task);
       }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DESIGN_INSTRUCTIONS } from "@/ai/design-prompt";
 import { EXTRACTION_INSTRUCTIONS } from "@/ai/prompt";
 import { ProviderError } from "@/ai/types";
 import { XaiMenuExtractionProvider } from "@/ai/xai";
@@ -51,6 +52,24 @@ const input = () => ({
   signal: new AbortController().signal,
 });
 
+
+const designProposal = {
+  summary: "Tomé el bordó de tu logo.",
+  colors: { background: "#F6F1E7", surface: "#FFFDF8", text: "#2A2420", muted: "#6B6158", accent: "#7A2341" },
+  fonts: { display: "playfair", body: "dm_sans" },
+  style: { header: "centered", categories: "caps", dividers: "dotted", corners: "soft" },
+};
+
+const designInput = () => ({
+  images: [
+    { label: "the restaurant's logo", image: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), mimeType: "image/jpeg" as const },
+    { label: "a photo of the restaurant's printed menu", image: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), mimeType: "image/jpeg" as const },
+  ],
+  context: "Restaurant name: La Esquina",
+  safetyIdentifier: "negocio-123",
+  signal: new AbortController().signal,
+});
+
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
@@ -99,6 +118,18 @@ describe("adaptador de xAI (Responses API)", () => {
     const wrongShape = { ...extraction, categories: [{ name: "X", items: [{ name: "Y", price_value: 12500 }] }] };
     const invalid = provider(() => json(okBody(JSON.stringify(wrongShape))));
     await expect(invalid.p.extractPage(input())).rejects.toBeInstanceOf(ProviderError);
+  });
+
+  it("propone un diseño con esquema estricto, imágenes etiquetadas y sin herramientas", async () => {
+    const { p, calls } = provider(() => json(okBody(JSON.stringify(designProposal))));
+    const result = await p.designTheme(designInput());
+    const body = JSON.parse(String(calls[0].init.body));
+    expect(body).toMatchObject({ store: false, instructions: DESIGN_INSTRUCTIONS, safety_identifier: "negocio-123" });
+    expect(body.tools).toBeUndefined();
+    expect(body.prompt_cache_key).toBeUndefined();
+    expect(body.text.format).toMatchObject({ type: "json_schema", name: "menu_design", strict: true });
+    expect(body.input[0].content.map((c: { type: string }) => c.type)).toEqual(["input_text", "input_image", "input_text", "input_image", "input_text"]);
+    expect(result.data.theme.colors.accent).toBe("#7A2341");
   });
 
   it("no se construye sin clave", () => {

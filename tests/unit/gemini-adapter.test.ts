@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GEMINI_RESPONSE_SCHEMA, GeminiMenuExtractionProvider } from "@/ai/gemini";
+import { DESIGN_INSTRUCTIONS } from "@/ai/design-prompt";
 import { EXTRACTION_INSTRUCTIONS } from "@/ai/prompt";
 import { ProviderError } from "@/ai/types";
 import { aiStatus, type ServerEnv } from "@/lib/env";
@@ -53,6 +54,24 @@ const input = () => ({
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
+
+
+const designProposal = {
+  summary: "Tomé el bordó de tu logo.",
+  colors: { background: "#F6F1E7", surface: "#FFFDF8", text: "#2A2420", muted: "#6B6158", accent: "#7A2341" },
+  fonts: { display: "playfair", body: "dm_sans" },
+  style: { header: "centered", categories: "caps", dividers: "dotted", corners: "soft" },
+};
+
+const designInput = () => ({
+  images: [
+    { label: "the restaurant's logo", image: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), mimeType: "image/jpeg" as const },
+    { label: "a photo of the restaurant's printed menu", image: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), mimeType: "image/jpeg" as const },
+  ],
+  context: "Restaurant name: La Esquina",
+  safetyIdentifier: "negocio-123",
+  signal: new AbortController().signal,
+});
 
 const googleError = (status: number, code: string, details: unknown[] = []) => ({ error: { code: status, message: "detalle", status: code, details } });
 
@@ -137,6 +156,73 @@ describe("adaptador de Gemini (generateContent)", () => {
     const tooMany = { ...extraction, categories: Array.from({ length: 61 }, () => extraction.categories[0]) };
     const huge = provider(() => json(okBody(JSON.stringify(tooMany))));
     await expect(huge.p.extractPage(input())).rejects.toMatchObject({ code: "invalid_output" });
+  });
+
+  it("propone un diseño: cada imagen con su etiqueta, sin herramientas y con la paleta corregida", async () => {
+    const { p, calls } = provider(() => json(okBody(JSON.stringify({ ...designProposal, colors: { ...designProposal.colors, muted: "#F0EBE0" } }))));
+    const result = await p.designTheme(designInput());
+    const body = JSON.parse(String(calls[0].init.body));
+    expect(body.systemInstruction.parts[0].text).toBe(DESIGN_INSTRUCTIONS);
+    expect(body.tools).toBeUndefined();
+    expect(body.store).toBe(false);
+    expect(body.contents[0].parts.map((part: { text?: string; inlineData?: unknown }) => (part.inlineData ? "imagen" : part.text?.split("\n")[0]))).toEqual([
+      "Image 1: the restaurant's logo",
+      "imagen",
+      "Image 2: a photo of the restaurant's printed menu",
+      "imagen",
+      "Images attached, in order: 1. the restaurant's logo; 2. a photo of the restaurant's printed menu.",
+    ]);
+    expect(JSON.stringify(body.generationConfig.responseJsonSchema)).toContain('"bebas"');
+    expect(result.data.summary).toBe("Tomé el bordó de tu logo.");
+    // El texto secundario casi blanco se oscureció hasta leerse.
+    expect(result.data.theme.colors.muted).not.toBe("#F0EBE0");
+    expect(result.data.theme.fonts.display).toBe("playfair");
+  });
+
+  it("rechaza una propuesta fuera del esquema", async () => {
+    const { p } = provider(() => json(okBody(JSON.stringify({ ...designProposal, fonts: { display: "comic", body: "dm_sans" } }))));
+    await expect(p.designTheme(designInput())).rejects.toMatchObject({ code: "invalid_output", retryable: true });
+  });
+
+  it("si se agota el cupo diario de un modelo usa el siguiente, y si se agotan todos lo informa sin reintentar", async () => {
+    const daily = () =>
+      json(
+        googleError(429, "RESOURCE_EXHAUSTED", [
+          { "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }] },
+          { "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "58169s" },
+        ]),
+        429,
+      );
+    const make = (respond: (url: string) => Response) => {
+      const urls: string[] = [];
+      const p = new GeminiMenuExtractionProvider({
+        apiKey: "k",
+        model: "gemini-3.5-flash",
+        fallbackModels: ["gemini-3.8-flash"],
+        baseUrl: "https://example.test",
+        timeoutMs: 10_000,
+        maxOutputTokens: 1000,
+        fetchImpl: (async (url: string) => {
+          urls.push(url);
+          return respond(url);
+        }) as unknown as typeof fetch,
+      });
+      return { p, urls };
+    };
+
+    const fallback = make((url) => (url.includes("gemini-3.5-flash") ? daily() : json({ ...okBody(JSON.stringify(extraction)), modelVersion: "gemini-3.8-flash" })));
+    const result = await fallback.p.extractPage(input());
+    expect(fallback.urls.map((u) => u.split("/models/")[1])).toEqual(["gemini-3.5-flash:generateContent", "gemini-3.8-flash:generateContent"]);
+    expect(result.model).toBe("gemini-3.8-flash");
+
+    const allSpent = make(() => daily());
+    await expect(allSpent.p.extractPage(input())).rejects.toMatchObject({ code: "quota_exhausted", retryable: false });
+    expect(allSpent.urls).toHaveLength(2);
+
+    // Un límite por minuto no cambia de modelo: se reintenta más tarde.
+    const perMinute = make(() => json(googleError(429, "RESOURCE_EXHAUSTED", [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "20s" }]), 429));
+    await expect(perMinute.p.extractPage(input())).rejects.toMatchObject({ code: "rate_limited", retryable: true, retryAfterSeconds: 20 });
+    expect(perMinute.urls).toHaveLength(1);
   });
 
   it("no se construye sin clave", () => {

@@ -49,7 +49,7 @@ export function BottomNav({ base, permissions }: { base: string; permissions: Re
     ...(permissions["imports.create"] ? [{ key: "actualizar", label: "Actualizar", href: `${base}/actualizar`, icon: Camera }] : []),
     { key: "mas", label: "Más", href: `${base}/mas`, icon: Ellipsis },
   ];
-  const moreActive = ["historial", "qr", "estadisticas", "configuracion", "mas"].some((s) => pathname.startsWith(`${base}/${s}`));
+  const moreActive = ["historial", "diseno", "qr", "estadisticas", "configuracion", "mas"].some((s) => pathname.startsWith(`${base}/${s}`));
   return (
     <nav aria-label="Secciones del panel" className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card lg:hidden">
       <ul className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>

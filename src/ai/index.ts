@@ -20,6 +20,7 @@ export function createExtractionProvider(env: ServerEnv = serverEnv()): MenuExtr
     return new GeminiMenuExtractionProvider({
       apiKey: env.ai.geminiApiKey!,
       model: env.ai.geminiModel,
+      fallbackModels: env.ai.geminiFallbackModels,
       baseUrl: env.ai.geminiBaseUrl,
       timeoutMs: env.ai.geminiTimeoutMs,
       maxOutputTokens: env.ai.geminiMaxOutputTokens,

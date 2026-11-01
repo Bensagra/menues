@@ -1,4 +1,5 @@
 import type { MenuSnapshot } from "@/domain/snapshot";
+import type { MenuTheme } from "@/domain/theme";
 import type { OpeningInterval } from "@/domain/time";
 
 export interface PublicMedia {
@@ -28,6 +29,8 @@ export interface PublicMenuData {
     name: string;
     description: string;
     brand_color: string | null;
+    /** Diseño elegido para la carta; null usa el estándar con brand_color. */
+    theme: MenuTheme | null;
     currency: string;
     locale: string;
     logo: PublicMedia | null;

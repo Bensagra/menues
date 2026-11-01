@@ -3,6 +3,7 @@ import {
   Camera,
   ChartColumn,
   History,
+  Palette,
   House,
   QrCode,
   Settings,
@@ -25,6 +26,7 @@ export const PANEL_NAV: NavItem[] = [
   { key: "menus", label: "Menús", href: (b) => `${b}/menus`, icon: BookOpen },
   { key: "actualizar", label: "Actualizar con foto", href: (b) => `${b}/actualizar`, icon: Camera, permission: "imports.create" },
   { key: "historial", label: "Historial", href: (b) => `${b}/historial`, icon: History, permission: "history.view" },
+  { key: "diseno", label: "Diseño", href: (b) => `${b}/diseno`, icon: Palette, permission: "business.update" },
   { key: "qr", label: "QR y difusión", href: (b) => `${b}/qr`, icon: QrCode },
   { key: "estadisticas", label: "Estadísticas", href: (b) => `${b}/estadisticas`, icon: ChartColumn, permission: "stats.view" },
   {

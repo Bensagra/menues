@@ -48,6 +48,7 @@ const serverSchema = z.object({
     xaiMaxOutputTokens: int(16_000, 1_000, 128_000),
     geminiApiKey: z.string().min(1).optional(),
     geminiModel: z.string().min(1),
+    geminiFallbackModels: z.array(z.string().min(1)).max(5),
     geminiBaseUrl: z.string().url(),
     geminiThinkingLevel: z.enum(["minimal", "low", "medium", "high"]).optional(),
     geminiTimeoutMs: int(300_000, 10_000, 900_000),
@@ -91,6 +92,11 @@ export function serverEnv(): ServerEnv {
       xaiMaxOutputTokens: e.XAI_MAX_OUTPUT_TOKENS,
       geminiApiKey: e.GEMINI_API_KEY || undefined,
       geminiModel: e.GEMINI_MODEL || "gemini-3.5-flash",
+      // Cada modelo tiene su propio cupo diario gratuito: si se agota el del principal, se usa el siguiente.
+      geminiFallbackModels: (e.GEMINI_FALLBACK_MODELS ?? "gemini-3.8-flash")
+        .split(",")
+        .map((m) => m.trim())
+        .filter((m) => m && m !== (e.GEMINI_MODEL || "gemini-3.5-flash")),
       geminiBaseUrl: (e.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, ""),
       geminiThinkingLevel: e.GEMINI_THINKING_LEVEL || undefined,
       geminiTimeoutMs: e.GEMINI_TIMEOUT_MS,

@@ -1,8 +1,16 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { parseDesignProposal } from "@/domain/design-proposal";
 import { parsePageExtraction, type PageExtraction } from "@/domain/extraction";
-import { ProviderError, type ExtractPageInput, type ExtractPageResult, type MenuExtractionProvider } from "./types";
+import {
+  ProviderError,
+  type DesignThemeInput,
+  type DesignThemeResult,
+  type ExtractPageInput,
+  type ExtractPageResult,
+  type MenuExtractionProvider,
+} from "./types";
 
 // Proveedor SIMULADO. Solo se habilita en pruebas (NODE_ENV=test) o en
 // desarrollo con ALLOW_MOCK_AI=true. Sus resultados quedan registrados con
@@ -70,4 +78,39 @@ export class MockMenuExtractionProvider implements MenuExtractionProvider {
     if (input.signal.aborted) throw new ProviderError("network", "Procesamiento cancelado");
     return { data, model: "mock", usage: { input_tokens: 0, output_tokens: 0, cost_usd_ticks: 0 } };
   }
+
+  /** Elige una de las propuestas fijas según las referencias: mismas referencias, misma propuesta. */
+  async designTheme(input: DesignThemeInput): Promise<DesignThemeResult> {
+    const hash = createHash("sha256").update(input.context);
+    for (const image of input.images) hash.update(image.image);
+    const index = parseInt(hash.digest("hex").slice(0, 8), 16) % MOCK_DESIGNS.length;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (input.signal.aborted) throw new ProviderError("network", "Procesamiento cancelado");
+    const parsed = parseDesignProposal(MOCK_DESIGNS[index]);
+    if (!parsed.ok) throw new ProviderError("invalid_output", `Propuesta simulada inválida: ${parsed.error}`);
+    return { data: parsed.data, model: "mock", usage: { input_tokens: 0, output_tokens: 0, cost_usd_ticks: 0 } };
+  }
 }
+
+const MOCK_SUMMARY = "Propuesta simulada (modo de prueba): no proviene de un modelo de IA.";
+
+const MOCK_DESIGNS = [
+  {
+    summary: MOCK_SUMMARY,
+    colors: { background: "#F6F1E7", surface: "#FFFDF8", text: "#2A2420", muted: "#6B6158", accent: "#9A4128" },
+    fonts: { display: "playfair", body: "dm_sans" },
+    style: { header: "centered", categories: "caps", dividers: "dotted", corners: "soft" },
+  },
+  {
+    summary: MOCK_SUMMARY,
+    colors: { background: "#16181A", surface: "#202326", text: "#F2EFE9", muted: "#B9B4AA", accent: "#E8B44C" },
+    fonts: { display: "bebas", body: "work_sans" },
+    style: { header: "classic", categories: "band", dividers: "solid", corners: "square" },
+  },
+  {
+    summary: MOCK_SUMMARY,
+    colors: { background: "#EEF3EE", surface: "#FFFFFF", text: "#1D2A22", muted: "#56645B", accent: "#2E5E45" },
+    fonts: { display: "caveat", body: "manrope" },
+    style: { header: "classic", categories: "underline", dividers: "dashed", corners: "round" },
+  },
+];

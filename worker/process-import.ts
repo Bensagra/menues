@@ -35,6 +35,7 @@ class PermanentError extends Error {
 const USER_MESSAGES: Record<string, string> = {
   timeout: "El servicio de lectura tardó demasiado en responder.",
   rate_limited: "El servicio de lectura está saturado en este momento.",
+  quota_exhausted: "Se agotó el cupo gratuito de hoy del servicio de IA. Se renueva todos los días: probá de nuevo mañana o cargá los cambios a mano.",
   unavailable: "El servicio de lectura no está disponible por el momento.",
   network: "No pudimos conectarnos con el servicio de lectura.",
   invalid_output: "No pudimos interpretar la respuesta del servicio de lectura.",
@@ -174,6 +175,10 @@ export async function processImport(job: ImportRow, deps: ProcessDeps): Promise<
       throw new Error(`worker_complete_import: ${completeError.message}`);
     }
     log.info("importación lista para revisar", { ...fields, proposals: proposals.length, ms: Date.now() - started });
+    // Con la primera foto de la carta se propone un diseño a medida (una sola vez por local).
+    const { data: designId, error: designError } = await db.rpc("worker_request_design_from_import", { p_import_id: job.id });
+    if (designError) log.warn("no se pudo pedir la propuesta de diseño", { ...fields, detail: designError.message });
+    else if (designId) log.info("propuesta de diseño pedida", { ...fields, designId });
   } catch (error) {
     if (error instanceof StopProcessing) {
       log.info("importación abandonada (cancelada o lease perdido)", fields);

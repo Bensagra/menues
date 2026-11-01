@@ -60,6 +60,7 @@ export function BusinessForm({ appUrl, timezones }: { appUrl: string; timezones:
   const [branchSlugEdited, setBranchSlugEdited] = useState(false);
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [address, setAddress] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const { run, pending, error, fieldErrors } = useAction(createBusinessAction);
 
   const effectiveSlug = slugEdited ? slug : slugify(name);
@@ -82,6 +83,7 @@ export function BusinessForm({ appUrl, timezones }: { appUrl: string; timezones:
           branchSlug: effectiveBranchSlug,
           timezone,
           address,
+          websiteUrl,
         });
         if (result.ok) {
           router.push(`/bienvenida/carga?negocio=${encodeURIComponent(result.data.businessSlug)}`);
@@ -112,6 +114,24 @@ export function BusinessForm({ appUrl, timezones }: { appUrl: string; timezones:
               />
               <SlugStatus state={businessSlugState} />
             </div>
+          )}
+        </FormField>
+        <FormField
+          label="Sitio web del local"
+          optional
+          hint="Lo usamos para armarte un diseño de carta con los colores y la letra de tu local. Instagram y Facebook no se pueden leer sin iniciar sesión."
+          error={fieldErrors.websiteUrl}
+        >
+          {(props) => (
+            <Input
+              {...props}
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="milocal.com.ar"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+            />
           )}
         </FormField>
         <FormField label="Moneda de los precios" error={fieldErrors.currency}>

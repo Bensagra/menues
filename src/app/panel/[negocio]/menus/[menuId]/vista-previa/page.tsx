@@ -8,6 +8,7 @@ import { PublicMenu } from "@/components/menu/public-menu";
 import { PreviewBranchSelect } from "@/components/menu/preview-branch-select";
 import { Button } from "@/components/ui/button";
 import { parseSnapshot } from "@/domain/snapshot";
+import { parseTheme } from "@/domain/theme";
 import type { OpeningInterval } from "@/domain/time";
 import { getBusinessContext } from "@/server/auth";
 import { requestTime } from "@/server/clock";
@@ -42,7 +43,7 @@ async function Preview({ params, searchParams }: { params: Props["params"]; sear
     supabase.rpc("get_draft_snapshot", { p_menu_id: menuId, p_branch_id: branch.id }),
     supabase
       .from("businesses")
-      .select("id, name, description, brand_color, currency, locale, logo:media!businesses_logo_fk(path_sm, path_lg, width, height), cover:media!businesses_cover_fk(path_sm, path_lg, width, height)")
+      .select("id, name, description, brand_color, theme, currency, locale, logo:media!businesses_logo_fk(path_sm, path_lg, width, height), cover:media!businesses_cover_fk(path_sm, path_lg, width, height)")
       .eq("id", ctx.business.id)
       .single(),
     supabase.from("branches").select("*").eq("id", branch.id).single(),
@@ -73,6 +74,7 @@ async function Preview({ params, searchParams }: { params: Props["params"]; sear
             name: business.name,
             description: business.description,
             brand_color: business.brand_color,
+            theme: parseTheme(business.theme),
             currency: business.currency,
             locale: business.locale,
             logo: toMedia(business.logo),
